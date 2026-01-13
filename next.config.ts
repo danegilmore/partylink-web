@@ -1,15 +1,5 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  async redirects() {
-    return [
-      {
-        source: '/:path*',
-        has: [{ type: 'host', value: 'www.partylink.co' }],
-        destination: 'https://partylink.co/:path*',
-        permanent: true,
-      },
-    ];
-  },
-};
+import type { NextConfig } from "next";
 
-module.exports = nextConfig;
+const nextConfig: NextConfig = {};
+
+export default nextConfig;
