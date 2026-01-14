@@ -8,26 +8,36 @@ export default function LoginPage({
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
-  const sp = use(searchParams); // ✅ unwrap Promise
-  const nextPath = sp?.next ?? "/host/events";
+  const sp = use(searchParams); // unwrap Promise
+  const nextPath = sp.next ?? "/host/events";
 
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState("");
 
   async function sendLink() {
+    if (!email.trim()) {
+      setMsg("Please enter your email.");
+      return;
+    }
+
     setMsg("Sending magic link...");
 
     const supabase = supabaseBrowser();
 
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
-
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+      nextPath
+    )}`;
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: redirectTo },
     });
 
-    setMsg(error ? `Error: ${error.message}` : "Check your email for the login link.");
+    setMsg(
+      error
+        ? `Error: ${error.message}`
+        : "Check your email for the login link."
+    );
   }
 
   return (
