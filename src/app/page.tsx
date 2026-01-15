@@ -1,30 +1,25 @@
 import Link from "next/link";
 
-export default function Home() {
-  // Use login + next to preserve redirects after magic-link auth
-  const createHref = "/login?next=/host/events/new";
-  const addGuestsHref = "/login?next=/host/events";
-  const trackHref = "/login?next=/host/events";
-
+export default function HomePage() {
   return (
     <main
       style={{
         minHeight: "100vh",
+        background: "#2b2b2b", // dark grey outside
         display: "flex",
         justifyContent: "center",
-        padding: 24,
-        background: "#fff",
+        padding: 12,
       }}
     >
-      {/* Phone-like frame to match PDF */}
+      {/* App surface */}
       <div
         style={{
-          width: 420,
-          maxWidth: "100%",
-          border: "6px solid #111",
+          width: "100%",
+          maxWidth: 420, // phone-like width on desktop
+          background: "#fff",
+          borderRadius: 12,
           padding: 18,
           boxSizing: "border-box",
-          background: "#fff",
         }}
       >
         {/* Header */}
@@ -35,26 +30,26 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Nav buttons row */}
+        {/* Nav */}
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           <NavButton href="/" active>
             Home
           </NavButton>
-          <NavButton href={createHref}>Create Party</NavButton>
-          <NavButton href={addGuestsHref}>Add Guests</NavButton>
-          <NavButton href={trackHref}>Track RSVP</NavButton>
+          <NavButton href="/host/events/new">Create Party</NavButton>
+          <NavButton href="/host/events">Add Guests</NavButton>
+          <NavButton href="/host/events">Track RSVP</NavButton>
         </div>
 
-        {/* Big CTA circle */}
+        {/* CTA */}
         <div
           style={{
             display: "flex",
             justifyContent: "center",
-            marginTop: 40,
+            marginTop: 36,
           }}
         >
           <Link
-            href={createHref}
+            href="/host/events/new"
             style={{
               width: 220,
               height: 220,
@@ -68,8 +63,6 @@ export default function Home() {
               textDecoration: "none",
               fontSize: 20,
               fontWeight: 600,
-              border: "2px solid rgba(0,0,0,0.25)",
-              padding: 18,
               lineHeight: 1.2,
             }}
           >
@@ -85,7 +78,7 @@ export default function Home() {
             How does this work:
           </div>
 
-          <ol style={{ margin: 0, paddingLeft: 18, color: "#111" }}>
+          <ol style={{ margin: 0, paddingLeft: 18 }}>
             <li style={{ marginBottom: 6 }}>30secs – create an event</li>
             <li style={{ marginBottom: 6 }}>5mins – add 10 guests</li>
             <li style={{ marginBottom: 6 }}>2mins – send invites</li>
@@ -120,6 +113,7 @@ function NavButton({
         fontWeight: 600,
         fontSize: 12,
         lineHeight: 1.1,
+        borderRadius: 6,
       }}
     >
       {children}
