@@ -7,7 +7,7 @@ export default function Home() {
       </p>
 
       <div style={{ display: "flex", gap: 12 }}>
-        <a href="/host/login" style={{ padding: 12, borderRadius: 10, background: "#000", color: "#fff", textDecoration: "none" }}>
+        <a href="/login" style={{ padding: 12, borderRadius: 10, background: "#000", color: "#fff", textDecoration: "none" }}>
           Create a party link
         </a>
         <a href="/rsvp/test" style={{ padding: 12, borderRadius: 10, border: "1px solid #ccc", textDecoration: "none" }}>
