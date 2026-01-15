@@ -123,19 +123,34 @@ export default function GuestsPage({
     await refresh();
   }
 
-    function whatsappLink(inviteToken: string, parent: string | null) {
-    const base =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : "https://partylink.co";
+    function waDigits(e164: string) {
+  return (e164 || "").replace(/\D/g, "");
+}
 
-    const rsvpUrl = `${base}/rsvp/${inviteToken}`;
-    const text = `Hi${parent ? " " + parent : ""}! Please RSVP here: ${rsvpUrl}\nEvent: ${
-      eventTitle || ""
-    }`;
+function whatsappLink(
+  inviteToken: string,
+  parent: string | null,
+  phone_e164: string | null
+) {
+  const base =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://www.partylink.co";
 
-    return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  const rsvpUrl = `${base}/rsvp/${inviteToken}`;
+  const text = `Hi${parent ? " " + parent : ""}! Please RSVP here: ${rsvpUrl}\nEvent: ${
+    eventTitle || ""
+  }`;
+
+  // If phone exists → open WhatsApp directly to that number
+  if (phone_e164 && waDigits(phone_e164).length >= 8) {
+    return `https://wa.me/${waDigits(phone_e164)}?text=${encodeURIComponent(text)}`;
   }
+
+  // Otherwise → generic WhatsApp share
+  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+
 
   return (
     <main style={{ maxWidth: 900, margin: "40px auto", padding: 16 }}>
@@ -228,12 +243,12 @@ export default function GuestsPage({
                 <a href={`/rsvp/${r.invite_token}`}>Open RSVP</a>{" "}
                 |{" "}
                 <a
-                  href={whatsappLink(r.invite_token, r.parent_name)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  WhatsApp
-                </a>
+  href={whatsappLink(r.invite_token, r.parent_name, r.phone_e164)}
+  target="_blank"
+  rel="noreferrer"
+>
+  WhatsApp
+</a>
               </td>
             </tr>
           ))}
