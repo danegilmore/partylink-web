@@ -32,8 +32,8 @@ function HostNav() {
     >
       <nav style={{ display: "flex", gap: 12 }}>
         <Link href="/">Home</Link>
+	<Link href="/host/events/new">Create Event</Link>
         <Link href="/host/events">My Events</Link>
-        <Link href="/host/events/new">Create Event</Link>
       </nav>
     </header>
   );
