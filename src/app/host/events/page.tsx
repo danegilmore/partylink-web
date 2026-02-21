@@ -1,5 +1,7 @@
+// src/app/host/events/page.tsx
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
+import EventsClient from "./EventsClient";
 
 function HostShell({
   activeTab,
@@ -69,7 +71,6 @@ function HostShell({
           >
             Create Event
           </Link>
-          {/* Adjust hrefs for these tabs to your actual routes if different */}
           <Link
             href="/host/guests"
             style={{
@@ -124,134 +125,9 @@ export default async function HostEventsPage() {
     .select("id,title,starts_at,location_name,created_at")
     .order("created_at", { ascending: false });
 
-  const hasEvents = (events ?? []).length > 0;
-
   return (
     <HostShell activeTab="create">
-      {/* “No events” banner */}
-      {!hasEvents && (
-        <div
-          style={{
-            backgroundColor: "#e6e6e6",
-            borderRadius: 4,
-            padding: "10px 12px",
-            textAlign: "center",
-            fontSize: 13,
-            marginBottom: 16,
-          }}
-        >
-          There are no events created
-        </div>
-      )}
-
-      {error && (
-        <pre
-          style={{
-            backgroundColor: "#fee",
-            padding: 8,
-            fontSize: 12,
-            marginBottom: 12,
-          }}
-        >
-          {error.message}
-        </pre>
-      )}
-
-      {/* Table header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: 12,
-          fontWeight: 600,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          marginBottom: 4,
-        }}
-      >
-        <span>Party Name</span>
-        <span>Date &amp; Time</span>
-      </div>
-
-      <div
-        style={{
-          borderBottom: "2px solid #00627A",
-          marginBottom: 12,
-        }}
-      />
-
-      {/* Event rows */}
-      <div>
-        {(events ?? []).map((e) => (
-          <Link
-            key={e.id}
-            href={`/host/events/${e.id}/guests`}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "10px 0",
-              borderBottom: "1px solid #e0e0e0",
-              textDecoration: "none",
-              fontSize: 14,
-              color: "#111",
-            }}
-          >
-            <span>{e.title}</span>
-            <span style={{ fontSize: 12, color: "#555", textAlign: "right" }}>
-              {e.starts_at
-                ? new Date(e.starts_at).toLocaleString(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })
-                : ""}
-            </span>
-          </Link>
-        ))}
-
-        {/* If you want visible empty lines like in the mockup even when no events: */}
-        {!hasEvents && (
-          <>
-            <div
-              style={{
-                borderBottom: "1px solid #e0e0e0",
-                padding: "12px 0",
-              }}
-            />
-            <div
-              style={{
-                borderBottom: "1px solid #e0e0e0",
-                padding: "12px 0",
-              }}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Add Event button (bottom-right) */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginTop: 24,
-        }}
-      >
-        <Link
-          href="/host/events/new"
-          style={{
-            display: "inline-block",
-            padding: "10px 22px",
-            backgroundColor: "#000",
-            color: "#fff",
-            borderRadius: 6,
-            border: "1px solid #000",
-            fontSize: 14,
-            textDecoration: "none",
-          }}
-        >
-          + Add Event
-        </Link>
-      </div>
+      <EventsClient initialEvents={events ?? []} errorMessage={error?.message} />
     </HostShell>
   );
 }
