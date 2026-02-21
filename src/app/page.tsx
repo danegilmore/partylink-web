@@ -87,26 +87,6 @@ export default function HomePage() {
             FREE party invites
           </Link>
 
-          <Link
-            href="/host/events"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              textAlign: "center",
-              padding: "12px 10px",
-              borderRadius: 10,
-              background: "#000",
-              color: "#fff",
-              textDecoration: "none",
-              fontSize: 13,
-              fontWeight: 600,
-              lineHeight: 1.25,
-            }}
-          >
-            Open
-            <br />
-            Existing Party
-          </Link>
         </section>
 
         {/* How it works box */}
