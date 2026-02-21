@@ -30,53 +30,63 @@ export default function EventsClient({
 
   const hasEvents = events.length > 0;
 
-  async function handleCreateEvent(e: React.FormEvent) {
-    e.preventDefault();
-    setFormError(null);
+async function handleCreateEvent(e: React.FormEvent) {
+  e.preventDefault();
+  setFormError(null);
 
-    if (!title.trim()) {
-      setFormError("Please enter a party name.");
-      return;
-    }
-    if (!dateTime) {
-      setFormError("Please select date & time.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const supabase = supabaseBrowser();
-
-      // Insert a new event.
-      // If your current /host/events/new page sets more columns (host_user_id, etc.),
-      // mirror that here.
-      const { data, error } = await supabase
-        .from("events")
-        .insert({
-          title,
-          starts_at: new Date(dateTime).toISOString(),
-          location_name: location || null,
-        })
-        .select("id,title,starts_at,location_name,created_at")
-        .single();
-
-      if (error) {
-        setFormError(error.message);
-        return;
-      }
-
-      // Add new event at the top of the list so the user sees it immediately.
-      setEvents((prev) => [data as EventRow, ...prev]);
-
-      // Reset and close modal
-      setTitle("");
-      setDateTime("");
-      setLocation("");
-      setShowModal(false);
-    } finally {
-      setSaving(false);
-    }
+  if (!title.trim()) {
+    setFormError("Please enter a party name.");
+    return;
   }
+  if (!dateTime) {
+    setFormError("Please select date & time.");
+    return;
+  }
+
+  setSaving(true);
+  try {
+    const supabase = supabaseBrowser();
+
+    // Same as in /host/events/new
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setFormError("You must be logged in to create an event.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("events")
+      .insert({
+        title,
+        // match your existing code: store the raw datetime-local value
+        starts_at: dateTime || null,
+        location_name: location || null,
+        host_user_id: user.id, // critical for RLS
+      })
+      .select("id,title,starts_at,location_name,created_at")
+      .single();
+
+    if (error) {
+      setFormError("Error: " + error.message);
+      return;
+    }
+
+    // Add new event to the top of the list
+    setEvents((prev) => [data as EventRow, ...prev]);
+
+    // Reset form + close modal
+    setTitle("");
+    setDateTime("");
+    setLocation("");
+    setShowModal(false);
+  } finally {
+    setSaving(false);
+  }
+}
 
   return (
     <>
