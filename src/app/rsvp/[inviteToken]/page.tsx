@@ -2,6 +2,7 @@
 
 import { use, useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import Link from "next/link";
 
 type RsvpView = {
   event_id: string;
@@ -12,6 +13,7 @@ type RsvpView = {
   location_name: string | null;
   child_name: string | null;
   current_status: string;
+  host_user_id: string | null;
 };
 
 export default function RsvpPage({
@@ -19,10 +21,8 @@ export default function RsvpPage({
 }: {
   params: Promise<{ inviteToken: string }>;
 }) {
-  // Unwrap params Promise (Next app router pattern you've been using)
-  const { inviteToken } = use(params);
+  const { inviteToken } = use(params); // unwrap Promise from app router
 
-  // Public anon client (fine for RSVP)
   const supabase = useMemo(
     () =>
       createClient(
@@ -36,8 +36,9 @@ export default function RsvpPage({
   const [view, setView] = useState<RsvpView | null>(null);
   const [status, setStatus] = useState<"yes" | "no" | "maybe">("yes");
   const [msg, setMsg] = useState("");
+  const [isHost, setIsHost] = useState(false);
 
-  // Load invite by token via RPC
+  // Load invite + figure out if current user is the host
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -55,7 +56,6 @@ export default function RsvpPage({
         return;
       }
 
-      // data can be an array or single object, depending on supabase-js version
       const row = Array.isArray(data) ? data[0] : data;
 
       if (!row) {
@@ -74,11 +74,11 @@ export default function RsvpPage({
         location_name: row.location_name ?? null,
         child_name: row.child_name ?? null,
         current_status: row.current_status ?? "pending",
+        host_user_id: row.host_user_id ?? null,
       };
 
       setView(mapped);
 
-      // Default selected status to current_status if valid
       if (
         mapped.current_status === "yes" ||
         mapped.current_status === "no" ||
@@ -87,6 +87,16 @@ export default function RsvpPage({
         setStatus(mapped.current_status);
       } else {
         setStatus("yes");
+      }
+
+      // Check if the current user is the host
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user ?? null;
+
+      if (user && mapped.host_user_id && user.id === mapped.host_user_id) {
+        setIsHost(true);
+      } else {
+        setIsHost(false);
       }
 
       setLoading(false);
@@ -187,12 +197,36 @@ export default function RsvpPage({
         </label>
       </div>
 
-      <button
-        onClick={submit}
-        style={{ marginTop: 18, padding: 10 }}
-      >
-        Submit
-      </button>
+      <div style={{ marginTop: 18, display: "flex", gap: 12 }}>
+        <button onClick={submit} style={{ padding: 10 }}>
+          Submit
+        </button>
+
+        {isHost ? (
+          // Host flow: go back to guest list
+          <Link
+            href={`/host/events/${view.event_id}/guests`}
+            style={{ padding: 10, textDecoration: "underline" }}
+          >
+            Back to guest list
+          </Link>
+        ) : (
+          // Invitee flow: simple "Done"
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                window.close();
+              } catch {
+                // ignore; user can close tab manually
+              }
+            }}
+            style={{ padding: 10 }}
+          >
+            Done
+          </button>
+        )}
+      </div>
 
       {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
     </main>

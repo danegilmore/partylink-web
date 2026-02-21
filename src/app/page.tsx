@@ -5,17 +5,15 @@ export default function HomePage() {
     <main
       style={{
         minHeight: "100vh",
-        background: "#2b2b2b", // dark grey outside
+        background: "#2b2b2b",
         display: "flex",
         justifyContent: "center",
         padding: 12,
       }}
     >
-      {/* App surface */}
       <div
         style={{
-          width: "100%",
-          maxWidth: 420, // phone-like width on desktop
+          width: "min(430px, 92vw)", // shows grey margin even on mobile
           background: "#fff",
           borderRadius: 12,
           padding: 18,
@@ -41,13 +39,7 @@ export default function HomePage() {
         </div>
 
         {/* CTA */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginTop: 36,
-          }}
-        >
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 36 }}>
           <Link
             href="/host/events/new"
             style={{

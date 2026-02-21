@@ -2,7 +2,26 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
+
+function HostNav() {
+  return (
+    <header
+      style={{
+        padding: "12px 16px",
+        borderBottom: "1px solid #e5e5e5",
+        marginBottom: 16,
+      }}
+    >
+      <nav style={{ display: "flex", gap: 12 }}>
+        <Link href="/">Home</Link>
+        <Link href="/host/events">My Events</Link>
+        <Link href="/host/events/new">Create Event</Link>
+      </nav>
+    </header>
+  );
+}
 
 export default function NewEventPage() {
   const router = useRouter();
@@ -48,43 +67,46 @@ export default function NewEventPage() {
   }
 
   return (
-    <main style={{ maxWidth: 600, margin: "40px auto", padding: 16 }}>
-      <h1>Create Event</h1>
+    <div style={{ maxWidth: 600, margin: "40px auto", padding: 16 }}>
+      <HostNav />
 
-      <div style={{ marginTop: 16 }}>
-        <label>Event title</label>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          style={{ display: "block", width: "100%", marginTop: 4 }}
-        />
-      </div>
+      <main>
+        <h1>Create Event</h1>
 
-      <div style={{ marginTop: 16 }}>
-        <label>Date & time</label>
-        <input
-          type="datetime-local"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          style={{ display: "block", width: "100%", marginTop: 4 }}
-        />
-      </div>
+        <div style={{ marginTop: 16 }}>
+          <label>Event title</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            style={{ display: "block", width: "100%", marginTop: 4 }}
+          />
+        </div>
 
-      <div style={{ marginTop: 16 }}>
-        <label>Location</label>
-        <input
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          style={{ display: "block", width: "100%", marginTop: 4 }}
-        />
-      </div>
+        <div style={{ marginTop: 16 }}>
+          <label>Date & time</label>
+          <input
+            type="datetime-local"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            style={{ display: "block", width: "100%", marginTop: 4 }}
+          />
+        </div>
 
-      <button onClick={handleCreate} style={{ marginTop: 24, padding: 10 }}>
-        Create event
-      </button>
+        <div style={{ marginTop: 16 }}>
+          <label>Location</label>
+          <input
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            style={{ display: "block", width: "100%", marginTop: 4 }}
+          />
+        </div>
 
-      {status && <p style={{ marginTop: 12 }}>{status}</p>}
-    </main>
+        <button onClick={handleCreate} style={{ marginTop: 24, padding: 10 }}>
+          Create event
+        </button>
+
+        {status && <p style={{ marginTop: 12 }}>{status}</p>}
+      </main>
+    </div>
   );
 }
-

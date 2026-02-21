@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 function normalizeSGPhone(input: string) {
@@ -19,6 +20,24 @@ type Row = {
   phone_e164: string | null;
   rsvp_status: string;
 };
+
+function HostNav() {
+  return (
+    <header
+      style={{
+        padding: "12px 16px",
+        borderBottom: "1px solid #e5e5e5",
+        marginBottom: 16,
+      }}
+    >
+      <nav style={{ display: "flex", gap: 12 }}>
+        <Link href="/">Home</Link>
+        <Link href="/host/events">My Events</Link>
+        <Link href="/host/events/new">Create Event</Link>
+      </nav>
+    </header>
+  );
+}
 
 export default function GuestsPage({
   params,
@@ -46,26 +65,141 @@ export default function GuestsPage({
 
       if (error) {
         setStatusMsg("Error loading event: " + error.message);
-      } else {
-        setEventTitle(data?.title ?? "");
+        return;
       }
 
-      await refresh();
+      setEventTitle(data?.title ?? "");
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
+  }, [supabase, eventId]);
 
-  async function refresh() {
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from("event_invites")
+        .select(
+          `
+            invite_token,
+            parent_name,
+            phone_e164,
+            participant_id,
+            participants:participant_id(full_name)
+          `
+        )
+        .eq("event_id", eventId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        setStatusMsg("Error loading invites: " + error.message);
+        return;
+      }
+
+      const participantIds = (data ?? [])
+        .map((x: any) => x.participant_id)
+        .filter(Boolean);
+
+      let attendanceMap = new Map<string, string>();
+      if (participantIds.length > 0) {
+        const { data: att } = await supabase
+          .from("attendance")
+          .select("participant_id,status")
+          .eq("event_id", eventId)
+          .in("participant_id", participantIds);
+
+        (att ?? []).forEach((a: any) =>
+          attendanceMap.set(a.participant_id, a.status)
+        );
+      }
+
+      const mapped: Row[] = (data ?? []).map((d: any) => ({
+        invite_token: d.invite_token,
+        child_name: d.participants?.full_name ?? "",
+        parent_name: d.parent_name ?? null,
+        phone_e164: d.phone_e164 ?? null,
+        rsvp_status: attendanceMap.get(d.participant_id) ?? "pending",
+      }));
+
+      setRows(mapped);
+      setStatusMsg("");
+    })();
+  }, [supabase, eventId]);
+
+  function phoneDigits(e164: string | null) {
+    const digits = (e164 || "").replace(/\D/g, "");
+    if (digits.startsWith("65") && digits.length === 10) {
+      return digits.slice(2);
+    }
+    return digits;
+  }
+
+  function whatsappLink(
+    inviteToken: string,
+    parent: string | null,
+    phone_e164: string | null
+  ) {
+    const base =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://www.partylink.co";
+
+    const rsvpUrl = `${base}/rsvp/${inviteToken}`;
+    const text = `Hi${parent ? " " + parent : ""}! Please RSVP here: ${rsvpUrl}\nEvent: ${
+      eventTitle || ""
+    }`;
+
+    if (!phone_e164) {
+      return `https://wa.me/?text=${encodeURIComponent(text)}`;
+    }
+
+    const digits = phoneDigits(phone_e164);
+    return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+  }
+
+  async function handleAddGuest() {
+    setStatusMsg("");
+
+    if (!childName.trim()) {
+      setStatusMsg("Child name is required.");
+      return;
+    }
+
+    const normalizedPhone = phone ? normalizeSGPhone(phone) : null;
+
+    const { error: insertError } = await supabase.rpc(
+      "create_invite_with_participant",
+      {
+        p_event_id: eventId,
+        p_child_name: childName.trim(),
+        p_parent_name: parentName.trim() || null,
+        p_phone_e164: normalizedPhone,
+      }
+    );
+
+    if (insertError) {
+      setStatusMsg("Error creating invite: " + insertError.message);
+      return;
+    }
+
+    setChildName("");
+    setParentName("");
+    setPhone("");
+    setStatusMsg("Guest added. Reloading list...");
+
     const { data, error } = await supabase
       .from("event_invites")
       .select(
-        "invite_token,parent_name,phone_e164,participant_id,participants(full_name)"
+        `
+          invite_token,
+          parent_name,
+          phone_e164,
+          participant_id,
+          participants:participant_id(full_name)
+        `
       )
       .eq("event_id", eventId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: true });
 
     if (error) {
-      setStatusMsg("Error loading invites: " + error.message);
+      setStatusMsg("Error reloading invites: " + error.message);
       return;
     }
 
@@ -95,173 +229,207 @@ export default function GuestsPage({
     }));
 
     setRows(mapped);
-  }
-
-  async function addGuest() {
-    if (!childName.trim()) return;
-
-    setStatusMsg("Saving...");
-
-    const phone_e164 = normalizeSGPhone(phone);
-
-    const { error } = await supabase.rpc("add_guest", {
-      p_event_id: eventId,
-      p_child_name: childName.trim(),
-      p_parent_name: parentName.trim() || null,
-      p_phone_e164: phone_e164 || null,
-    });
-
-    if (error) {
-      setStatusMsg("Error adding guest: " + error.message);
-      return;
-    }
-
-    setChildName("");
-    setParentName("");
-    setPhone("");
     setStatusMsg("Guest added.");
-    await refresh();
   }
-
-    function waDigits(e164: string) {
-  return (e164 || "").replace(/\D/g, "");
-}
-
-function whatsappLink(
-  inviteToken: string,
-  parent: string | null,
-  phone_e164: string | null
-) {
-  const base =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : "https://www.partylink.co";
-
-  const rsvpUrl = `${base}/rsvp/${inviteToken}`;
-  const text = `Hi${parent ? " " + parent : ""}! Please RSVP here: ${rsvpUrl}\nEvent: ${
-    eventTitle || ""
-  }`;
-
-  // If phone exists → open WhatsApp directly to that number
-  if (phone_e164 && waDigits(phone_e164).length >= 8) {
-    return `https://wa.me/${waDigits(phone_e164)}?text=${encodeURIComponent(text)}`;
-  }
-
-  // Otherwise → generic WhatsApp share
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
-}
-
 
   return (
-    <main style={{ maxWidth: 900, margin: "40px auto", padding: 16 }}>
-      <h1 style={{ marginBottom: 6 }}>Guests & RSVPs</h1>
-      <p style={{ color: "#666", marginBottom: 18 }}>
-        Event: <strong>{eventTitle || eventId}</strong>
-      </p>
-
-      <div style={{ border: "1px solid #ddd", borderRadius: 10, padding: 12 }}>
-        <h2 style={{ marginTop: 0 }}>Add a guest (child)</h2>
-
-        <div style={{ display: "grid", gap: 10 }}>
-          <label>
-            Child name
-            <input
-              value={childName}
-              onChange={(e) => setChildName(e.target.value)}
-              style={{ display: "block", width: "100%" }}
-            />
-          </label>
-
-          <label>
-            Parent name (optional)
-            <input
-              value={parentName}
-              onChange={(e) => setParentName(e.target.value)}
-              style={{ display: "block", width: "100%" }}
-            />
-          </label>
-
-          <label>
-            Parent phone (optional)
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="e.g. 91234567 or +6591234567"
-              style={{ display: "block", width: "100%" }}
-            />
-          </label>
-
-          <button
-            onClick={addGuest}
-            disabled={!childName.trim()}
-            style={{ padding: 10 }}
-          >
-            Add guest & generate RSVP link
-          </button>
-
-          {statusMsg && <p style={{ margin: 0 }}>{statusMsg}</p>}
-        </div>
+    <div style={{ maxWidth: 900, margin: "40px auto", padding: 16 }}>
+      <HostNav />
+      <div style={{ marginBottom: 12 }}>
+        <Link href="/host/events">← Back to event list</Link>
       </div>
 
-      <h2 style={{ marginTop: 28 }}>Current invites</h2>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
-              Child
-            </th>
-            <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
-              Parent
-            </th>
-            <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
-              Phone
-            </th>
-            <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
-              RSVP
-            </th>
-            <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.invite_token}>
-              <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>
-                {r.child_name}
-              </td>
-              <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>
-                {r.parent_name ?? "-"}
-              </td>
-              <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>
-                {r.phone_e164 ?? "-"}
-              </td>
-              <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>
-                {r.rsvp_status}
-              </td>
-              <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>
-                <a href={`/rsvp/${r.invite_token}`}>Open RSVP</a>{" "}
-                |{" "}
-                <a
-  href={whatsappLink(r.invite_token, r.parent_name, r.phone_e164)}
-  target="_blank"
-  rel="noreferrer"
->
-  WhatsApp
-</a>
-              </td>
-            </tr>
-          ))}
+      <main>
+        <h1 style={{ marginBottom: 6 }}>Guests & RSVPs</h1>
+        <p style={{ color: "#666", marginBottom: 18 }}>
+          Event: <strong>{eventTitle || eventId}</strong>
+        </p>
 
-          {rows.length === 0 && (
+        <div
+          style={{
+            border: "1px solid #ddd",
+            borderRadius: 10,
+            padding: 12,
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>Add a guest (child)</h2>
+
+          <div style={{ display: "grid", gap: 10 }}>
+            <label>
+              Child name
+              <input
+                value={childName}
+                onChange={(e) => setChildName(e.target.value)}
+                style={{ display: "block", width: "100%" }}
+              />
+            </label>
+
+            <label>
+              Parent name (optional)
+              <input
+                value={parentName}
+                onChange={(e) => setParentName(e.target.value)}
+                style={{ display: "block", width: "100%" }}
+              />
+            </label>
+
+            <label>
+              Phone (optional, SG or +65)
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                style={{ display: "block", width: "100%" }}
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={handleAddGuest}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 4,
+                border: "1px solid #000",
+                background: "#fff",
+                cursor: "pointer",
+                maxWidth: 180,
+              }}
+            >
+              Add guest
+            </button>
+
+            {statusMsg && (
+              <p style={{ color: "#444", marginTop: 4 }}>{statusMsg}</p>
+            )}
+          </div>
+        </div>
+
+        <h2 style={{ marginTop: 24, marginBottom: 10 }}>Guest list</h2>
+
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: 14,
+          }}
+        >
+          <thead>
             <tr>
-              <td colSpan={5} style={{ padding: 12, color: "#666" }}>
-                No guests yet.
-              </td>
+              <th
+                style={{
+                  textAlign: "left",
+                  borderBottom: "1px solid #ddd",
+                  padding: "8px 4px",
+                }}
+              >
+                Child
+              </th>
+              <th
+                style={{
+                  textAlign: "left",
+                  borderBottom: "1px solid #ddd",
+                  padding: "8px 4px",
+                }}
+              >
+                Parent
+              </th>
+              <th
+                style={{
+                  textAlign: "left",
+                  borderBottom: "1px solid #ddd",
+                  padding: "8px 4px",
+                }}
+              >
+                Phone
+              </th>
+              <th
+                style={{
+                  textAlign: "left",
+                  borderBottom: "1px solid #ddd",
+                  padding: "8px 4px",
+                }}
+              >
+                RSVP
+              </th>
+              <th
+                style={{
+                  textAlign: "left",
+                  borderBottom: "1px solid #ddd",
+                  padding: "8px 4px",
+                }}
+              >
+                Share link
+              </th>
             </tr>
-          )}
-        </tbody>
-      </table>
-    </main>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.invite_token}>
+                <td
+                  style={{
+                    borderBottom: "1px solid #f0f0f0",
+                    padding: "6px 4px",
+                  }}
+                >
+                  {row.child_name}
+                </td>
+                <td
+                  style={{
+                    borderBottom: "1px solid #f0f0f0",
+                    padding: "6px 4px",
+                  }}
+                >
+                  {row.parent_name || "-"}
+                </td>
+                <td
+                  style={{
+                    borderBottom: "1px solid #f0f0f0",
+                    padding: "6px 4px",
+                  }}
+                >
+                  {row.phone_e164
+                    ? `${row.phone_e164} (${phoneDigits(row.phone_e164)})`
+                    : "-"}
+                </td>
+                <td
+                  style={{
+                    borderBottom: "1px solid #f0f0f0",
+                    padding: "6px 4px",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {row.rsvp_status}
+                </td>
+                <td
+                  style={{
+                    borderBottom: "1px solid #f0f0f0",
+                    padding: "6px 4px",
+                  }}
+                >
+                  <a
+                    href={whatsappLink(
+                      row.invite_token,
+                      row.parent_name,
+                      row.phone_e164
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    WhatsApp
+                  </a>
+                </td>
+              </tr>
+            ))}
+
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={5} style={{ padding: 12, color: "#666" }}>
+                  No guests yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </main>
+    </div>
   );
 }
