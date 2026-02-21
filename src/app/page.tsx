@@ -67,7 +67,7 @@ export default function HomePage() {
           }}
         >
           <Link
-            href="/host/events/new"
+            href="/host/events"
             style={{
               flex: 1,
               minWidth: 0,
