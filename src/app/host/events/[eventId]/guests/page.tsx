@@ -178,6 +178,7 @@ export default function GuestsPage({
   function displayStatus(row: Row): string {
     const rsvp = row.rsvp_status?.toLowerCase();
 
+    // Final RSVP overrides everything
     if (rsvp === "yes" || rsvp === "no" || rsvp === "maybe") {
       return rsvp.charAt(0).toUpperCase() + rsvp.slice(1);
     }
@@ -912,25 +913,24 @@ export default function GuestsPage({
           <div style={{ overflowX: "auto" }}>
             <div
               style={{
-                minWidth: 620, // wider than card to allow horizontal scroll when needed
+                minWidth: 540,
               }}
             >
-              {/* Column headers */}
+              {/* Column headers (no parent column; merged RSVP/WhatsApp) */}
               <div
                 style={{
                   fontSize: 11,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
                   display: "grid",
-                  gridTemplateColumns: "2fr 2fr 1.7fr 1.6fr 1.5fr",
+                  gridTemplateColumns: "2.2fr 1.8fr 2.4fr 1.2fr",
                   columnGap: 6,
                   marginBottom: 4,
                 }}
               >
                 <div>Child Name</div>
-                <div>Parent Name</div>
                 <div>Phone Number</div>
-                <div>RSVP Status</div>
+                <div>RSVP / WhatsApp</div>
                 <div style={{ textAlign: "right" }}>Actions</div>
               </div>
               <div
@@ -947,7 +947,7 @@ export default function GuestsPage({
                     key={row.invite_token}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "2fr 2fr 1.7fr 1.6fr 1.5fr",
+                      gridTemplateColumns: "2.2fr 1.8fr 2.4fr 1.2fr",
                       columnGap: 6,
                       alignItems: "center",
                       padding: "6px 0",
@@ -955,13 +955,18 @@ export default function GuestsPage({
                       fontSize: 13,
                     }}
                   >
+                    {/* Child */}
                     <div>{row.child_name}</div>
-                    <div>{row.parent_name || ""}</div>
-                    <div>{row.phone_e164 ? phoneDigits(row.phone_e164) : ""}</div>
 
-                    {/* RSVP Status column */}
+                    {/* Phone */}
+                    <div>
+                      {row.phone_e164 ? phoneDigits(row.phone_e164) : ""}
+                    </div>
+
+                    {/* RSVP / WhatsApp (merged) */}
                     <div>
                       {row.invite_method === "manual" ? (
+                        // Manual: dropdown only, no WA
                         <select
                           value={
                             ["yes", "no", "maybe"].includes(
@@ -985,29 +990,12 @@ export default function GuestsPage({
                           <option value="no">No</option>
                           <option value="maybe">Maybe</option>
                         </select>
-                      ) : (
-                        <span style={{ fontSize: 12 }}>
-                          {displayStatus(row)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Actions column: WhatsApp / manual + icon Edit/Delete */}
-                    <div
-                      style={{
-                        textAlign: "right",
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        gap: 4,
-                        alignItems: "center",
-                      }}
-                    >
-                      {row.invite_method === "manual" ? (
-                        <span style={{ fontSize: 11, color: "#555" }}>M</span>
-                      ) : row.phone_e164 ? (
+                      ) : row.invite_status === "not_sent" ? (
+                        // WhatsApp & not yet sent: show WA "Send" pill here
                         <button
                           type="button"
                           onClick={async () => {
+                            if (!row.phone_e164) return;
                             window.open(
                               whatsappLink(
                                 row.invite_token,
@@ -1017,38 +1005,42 @@ export default function GuestsPage({
                               "_blank"
                             );
 
-                            if (row.invite_status === "not_sent") {
-                              await supabase.rpc("mark_whatsapp_sent", {
-                                p_invite_token: row.invite_token,
-                              });
-                              await reloadRows();
-                            }
+                            await supabase.rpc("mark_whatsapp_sent", {
+                              p_invite_token: row.invite_token,
+                            });
+                            await reloadRows();
                           }}
-                          title="Send WhatsApp"
                           style={{
-                            fontSize: 11,
-                            padding: "2px 6px",
+                            fontSize: 12,
+                            padding: "4px 8px",
                             borderRadius: 999,
                             border: "1px solid #0077a8",
-                            background:
-                              row.invite_status === "whatsapp_sent" ||
-                              row.invite_status === "acknowledged"
-                                ? "#0077a8"
-                                : "transparent",
-                            color:
-                              row.invite_status === "whatsapp_sent" ||
-                              row.invite_status === "acknowledged"
-                                ? "#fff"
-                                : "#0077a8",
-                            cursor: "pointer",
+                            background: "transparent",
+                            color: "#0077a8",
+                            cursor: row.phone_e164 ? "pointer" : "not-allowed",
+                            opacity: row.phone_e164 ? 1 : 0.4,
                           }}
                         >
-                          WA
+                          Send WhatsApp
                         </button>
                       ) : (
-                        <span style={{ fontSize: 11, color: "#aaa" }}>—</span>
+                        // WhatsApp & already sent / acknowledged / RSVP set
+                        <span style={{ fontSize: 12 }}>
+                          {displayStatus(row)}
+                        </span>
                       )}
+                    </div>
 
+                    {/* Actions: edit / delete icons */}
+                    <div
+                      style={{
+                        textAlign: "right",
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: 4,
+                        alignItems: "center",
+                      }}
+                    >
                       <button
                         type="button"
                         onClick={() => openEditModal(row)}
