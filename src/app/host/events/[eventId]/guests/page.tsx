@@ -908,190 +908,199 @@ export default function GuestsPage({
             </div>
           </div>
 
-          {/* Column headers */}
-          <div
-            style={{
-              fontSize: 11,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              display: "grid",
-              gridTemplateColumns: "2fr 2fr 1.7fr 1.6fr 1.5fr",
-              columnGap: 6,
-              marginBottom: 4,
-            }}
-          >
-            <div>Child Name</div>
-            <div>Parent Name</div>
-            <div>Phone Number</div>
-            <div>RSVP Status</div>
-            <div style={{ textAlign: "right" }}>Actions</div>
-          </div>
-          <div
-            style={{
-              borderBottom: "2px solid #0077a8",
-              marginBottom: 4,
-            }}
-          />
-
-          {/* Guest rows */}
-          <div>
-            {rows.map((row) => (
+          {/* Scrollable table container */}
+          <div style={{ overflowX: "auto" }}>
+            <div
+              style={{
+                minWidth: 620, // wider than card to allow horizontal scroll when needed
+              }}
+            >
+              {/* Column headers */}
               <div
-                key={row.invite_token}
                 style={{
+                  fontSize: 11,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
                   display: "grid",
                   gridTemplateColumns: "2fr 2fr 1.7fr 1.6fr 1.5fr",
                   columnGap: 6,
-                  alignItems: "center",
-                  padding: "6px 0",
-                  borderBottom: "1px solid #eee",
-                  fontSize: 13,
+                  marginBottom: 4,
                 }}
               >
-                <div>{row.child_name}</div>
-                <div>{row.parent_name || ""}</div>
-                <div>{row.phone_e164 ? phoneDigits(row.phone_e164) : ""}</div>
-
-                {/* RSVP Status column */}
-                <div>
-                  {row.invite_method === "manual" ? (
-                    <select
-                      value={
-                        ["yes", "no", "maybe"].includes(
-                          row.rsvp_status.toLowerCase()
-                        )
-                          ? row.rsvp_status.toLowerCase()
-                          : "pending"
-                      }
-                      onChange={(e) =>
-                        updateManualStatus(row, e.target.value.toLowerCase())
-                      }
-                      style={{
-                        fontSize: 12,
-                        padding: "2px 4px",
-                        borderRadius: 4,
-                        border: "1px solid #ccc",
-                      }}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="yes">Yes</option>
-                      <option value="no">No</option>
-                      <option value="maybe">Maybe</option>
-                    </select>
-                  ) : (
-                    <span style={{ fontSize: 12 }}>
-                      {displayStatus(row)}
-                    </span>
-                  )}
-                </div>
-
-                {/* Actions column: WhatsApp / manual + icon Edit/Delete */}
-                <div
-                  style={{
-                    textAlign: "right",
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: 4,
-                    alignItems: "center",
-                  }}
-                >
-                  {row.invite_method === "manual" ? (
-                    <span style={{ fontSize: 11, color: "#555" }}>M</span>
-                  ) : row.phone_e164 ? (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        window.open(
-                          whatsappLink(
-                            row.invite_token,
-                            row.parent_name,
-                            row.phone_e164
-                          ),
-                          "_blank"
-                        );
-
-                        if (row.invite_status === "not_sent") {
-                          await supabase.rpc("mark_whatsapp_sent", {
-                            p_invite_token: row.invite_token,
-                          });
-                          await reloadRows();
-                        }
-                      }}
-                      title="Send WhatsApp"
-                      style={{
-                        fontSize: 11,
-                        padding: "2px 6px",
-                        borderRadius: 999,
-                        border: "1px solid #0077a8",
-                        background:
-                          row.invite_status === "whatsapp_sent" ||
-                          row.invite_status === "acknowledged"
-                            ? "#0077a8"
-                            : "transparent",
-                        color:
-                          row.invite_status === "whatsapp_sent" ||
-                          row.invite_status === "acknowledged"
-                            ? "#fff"
-                            : "#0077a8",
-                        cursor: "pointer",
-                      }}
-                    >
-                      WA
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: 11, color: "#aaa" }}>—</span>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => openEditModal(row)}
-                    title="Edit guest"
-                    style={{
-                      fontSize: 13,
-                      padding: "2px 4px",
-                      borderRadius: 4,
-                      border: "1px solid #ccc",
-                      background: "#fff",
-                      cursor: "pointer",
-                      lineHeight: 1,
-                    }}
-                  >
-                    ✏️
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteGuest(row)}
-                    title="Delete guest"
-                    style={{
-                      fontSize: 13,
-                      padding: "2px 4px",
-                      borderRadius: 4,
-                      border: "1px solid #f33",
-                      background: "#fff",
-                      color: "#c00",
-                      cursor: "pointer",
-                      lineHeight: 1,
-                    }}
-                  >
-                    🗑
-                  </button>
-                </div>
+                <div>Child Name</div>
+                <div>Parent Name</div>
+                <div>Phone Number</div>
+                <div>RSVP Status</div>
+                <div style={{ textAlign: "right" }}>Actions</div>
               </div>
-            ))}
-
-            {rows.length === 0 && (
               <div
                 style={{
-                  padding: "12px 0",
-                  fontSize: 13,
-                  color: "#777",
-                  borderBottom: "1px solid #eee",
+                  borderBottom: "2px solid #0077a8",
+                  marginBottom: 4,
                 }}
-              >
-                No guests yet.
+              />
+
+              {/* Guest rows */}
+              <div>
+                {rows.map((row) => (
+                  <div
+                    key={row.invite_token}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "2fr 2fr 1.7fr 1.6fr 1.5fr",
+                      columnGap: 6,
+                      alignItems: "center",
+                      padding: "6px 0",
+                      borderBottom: "1px solid #eee",
+                      fontSize: 13,
+                    }}
+                  >
+                    <div>{row.child_name}</div>
+                    <div>{row.parent_name || ""}</div>
+                    <div>{row.phone_e164 ? phoneDigits(row.phone_e164) : ""}</div>
+
+                    {/* RSVP Status column */}
+                    <div>
+                      {row.invite_method === "manual" ? (
+                        <select
+                          value={
+                            ["yes", "no", "maybe"].includes(
+                              row.rsvp_status.toLowerCase()
+                            )
+                              ? row.rsvp_status.toLowerCase()
+                              : "pending"
+                          }
+                          onChange={(e) =>
+                            updateManualStatus(row, e.target.value.toLowerCase())
+                          }
+                          style={{
+                            fontSize: 12,
+                            padding: "2px 4px",
+                            borderRadius: 4,
+                            border: "1px solid #ccc",
+                          }}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
+                          <option value="maybe">Maybe</option>
+                        </select>
+                      ) : (
+                        <span style={{ fontSize: 12 }}>
+                          {displayStatus(row)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Actions column: WhatsApp / manual + icon Edit/Delete */}
+                    <div
+                      style={{
+                        textAlign: "right",
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: 4,
+                        alignItems: "center",
+                      }}
+                    >
+                      {row.invite_method === "manual" ? (
+                        <span style={{ fontSize: 11, color: "#555" }}>M</span>
+                      ) : row.phone_e164 ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            window.open(
+                              whatsappLink(
+                                row.invite_token,
+                                row.parent_name,
+                                row.phone_e164
+                              ),
+                              "_blank"
+                            );
+
+                            if (row.invite_status === "not_sent") {
+                              await supabase.rpc("mark_whatsapp_sent", {
+                                p_invite_token: row.invite_token,
+                              });
+                              await reloadRows();
+                            }
+                          }}
+                          title="Send WhatsApp"
+                          style={{
+                            fontSize: 11,
+                            padding: "2px 6px",
+                            borderRadius: 999,
+                            border: "1px solid #0077a8",
+                            background:
+                              row.invite_status === "whatsapp_sent" ||
+                              row.invite_status === "acknowledged"
+                                ? "#0077a8"
+                                : "transparent",
+                            color:
+                              row.invite_status === "whatsapp_sent" ||
+                              row.invite_status === "acknowledged"
+                                ? "#fff"
+                                : "#0077a8",
+                            cursor: "pointer",
+                          }}
+                        >
+                          WA
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: 11, color: "#aaa" }}>—</span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(row)}
+                        title="Edit guest"
+                        style={{
+                          fontSize: 13,
+                          padding: "2px 4px",
+                          borderRadius: 4,
+                          border: "1px solid #ccc",
+                          background: "#fff",
+                          cursor: "pointer",
+                          lineHeight: 1,
+                        }}
+                      >
+                        ✏️
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteGuest(row)}
+                        title="Delete guest"
+                        style={{
+                          fontSize: 13,
+                          padding: "2px 4px",
+                          borderRadius: 4,
+                          border: "1px solid #f33",
+                          background: "#fff",
+                          color: "#c00",
+                          cursor: "pointer",
+                          lineHeight: 1,
+                        }}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {rows.length === 0 && (
+                  <div
+                    style={{
+                      padding: "12px 0",
+                      fontSize: 13,
+                      color: "#777",
+                      borderBottom: "1px solid #eee",
+                    }}
+                  >
+                    No guests yet.
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Bottom buttons */}
