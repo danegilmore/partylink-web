@@ -105,6 +105,7 @@ export default function GuestsPage({
         phone_e164,
         invite_method,
         invite_status,
+        child_name,
         participant_id,
         participants:participant_id(full_name)
       `)
@@ -136,7 +137,11 @@ export default function GuestsPage({
     const mapped: Row[] = (data ?? []).map((d: any) => ({
       invite_token: d.invite_token,
       participant_id: d.participant_id,
-      child_name: d.participants?.full_name ?? "",
+      // Prefer event_invites.child_name, fall back to participants.full_name
+      child_name:
+        d.child_name ??
+        (d.participants ? d.participants.full_name : "") ??
+        "",
       parent_name: d.parent_name ?? null,
       phone_e164: d.phone_e164 ?? null,
       rsvp_status: attendanceMap.get(d.participant_id) ?? "pending",
@@ -554,7 +559,7 @@ export default function GuestsPage({
                         fontSize: 12,
                         padding: "2px 4px",
                         borderRadius: 4,
-                        border: "1px solid #ccc",
+                        border: "1px solid "#ccc",
                       }}
                     >
                       <option value="pending">Pending</option>
@@ -569,52 +574,56 @@ export default function GuestsPage({
                   )}
                 </div>
 
-{/* WhatsApp / Invite method column */}
-<div style={{ textAlign: "right" }}>
-  {row.invite_method === "manual" ? (
-    <span style={{ fontSize: 12, color: "#555" }}>Manual invite</span>
-  ) : row.phone_e164 ? (
-    <button
-      type="button"
-      onClick={async () => {
-        // Open WhatsApp link
-        window.open(
-          whatsappLink(row.invite_token, row.parent_name, row.phone_e164),
-          "_blank"
-        );
+                {/* WhatsApp / Invite method column */}
+                <div style={{ textAlign: "right" }}>
+                  {row.invite_method === "manual" ? (
+                    <span style={{ fontSize: 12, color: "#555" }}>
+                      Manual invite
+                    </span>
+                  ) : row.phone_e164 ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        window.open(
+                          whatsappLink(
+                            row.invite_token,
+                            row.parent_name,
+                            row.phone_e164
+                          ),
+                          "_blank"
+                        );
 
-        // Only mark sent if not already acknowledged
-        if (row.invite_status === "not_sent") {
-          await supabase.rpc("mark_whatsapp_sent", {
-            p_invite_token: row.invite_token,
-          });
-          await reloadRows();
-        }
-      }}
-      style={{
-        fontSize: 12,
-        padding: "4px 8px",
-        borderRadius: 999,
-        border: "1px solid #0077a8",
-        background:
-          row.invite_status === "whatsapp_sent" ||
-          row.invite_status === "acknowledged"
-            ? "#0077a8"
-            : "transparent",
-        color:
-          row.invite_status === "whatsapp_sent" ||
-          row.invite_status === "acknowledged"
-            ? "#fff"
-            : "#0077a8",
-        cursor: "pointer",
-      }}
-    >
-      {row.invite_status === "not_sent" ? "Send" : "Resend"}
-    </button>
-  ) : (
-    <span style={{ fontSize: 12, color: "#aaa" }}>—</span>
-  )}
-</div>
+                        if (row.invite_status === "not_sent") {
+                          await supabase.rpc("mark_whatsapp_sent", {
+                            p_invite_token: row.invite_token,
+                          });
+                          await reloadRows();
+                        }
+                      }}
+                      style={{
+                        fontSize: 12,
+                        padding: "4px 8px",
+                        borderRadius: 999,
+                        border: "1px solid #0077a8",
+                        background:
+                          row.invite_status === "whatsapp_sent" ||
+                          row.invite_status === "acknowledged"
+                            ? "#0077a8"
+                            : "transparent",
+                        color:
+                          row.invite_status === "whatsapp_sent" ||
+                          row.invite_status === "acknowledged"
+                            ? "#fff"
+                            : "#0077a8",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {row.invite_status === "not_sent" ? "Send" : "Resend"}
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#aaa" }}>—</span>
+                  )}
+                </div>
               </div>
             ))}
 
