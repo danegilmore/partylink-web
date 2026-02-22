@@ -99,16 +99,17 @@ export default function GuestsPage({
   async function reloadRows() {
     const { data, error } = await supabase
       .from("event_invites")
-      .select(`
+      .select(
+        `
         invite_token,
+        participant_id,
+        child_name,
         parent_name,
         phone_e164,
         invite_method,
-        invite_status,
-        child_name,
-        participant_id,
-        participants:participant_id(full_name)
-      `)
+        invite_status
+      `
+      )
       .eq("event_id", eventId)
       .order("created_at", { ascending: true });
 
@@ -137,11 +138,7 @@ export default function GuestsPage({
     const mapped: Row[] = (data ?? []).map((d: any) => ({
       invite_token: d.invite_token,
       participant_id: d.participant_id,
-      // Prefer event_invites.child_name, fall back to participants.full_name
-      child_name:
-        d.child_name ??
-        (d.participants ? d.participants.full_name : "") ??
-        "",
+      child_name: d.child_name ?? "",          // <- directly from event_invites
       parent_name: d.parent_name ?? null,
       phone_e164: d.phone_e164 ?? null,
       rsvp_status: attendanceMap.get(d.participant_id) ?? "pending",
@@ -559,7 +556,7 @@ export default function GuestsPage({
                         fontSize: 12,
                         padding: "2px 4px",
                         borderRadius: 4,
-                        border: "1px solid "#ccc",
+                        border: "1px solid #ccc",
                       }}
                     >
                       <option value="pending">Pending</option>
