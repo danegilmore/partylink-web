@@ -412,9 +412,22 @@ export default function GuestsPage({
     setStatusMsg("Guest deleted.");
   }
 
+  // Summary numbers
   const guestCount = rows.length;
-  const guestCountLabel =
-    guestCount === 1 ? "1 Guest in List" : `${guestCount} Guests in List`;
+  const yesCount = rows.filter(
+    (r) => r.rsvp_status?.toLowerCase() === "yes"
+  ).length;
+  const noCount = rows.filter(
+    (r) => r.rsvp_status?.toLowerCase() === "no"
+  ).length;
+  const maybeCount = rows.filter(
+    (r) => r.rsvp_status?.toLowerCase() === "maybe"
+  ).length;
+  const pendingCount = guestCount - yesCount - noCount - maybeCount;
+
+  const guestSummary = `${guestCount} Guest${
+    guestCount === 1 ? "" : "s"
+  }: ${yesCount} Yes, ${noCount} No, ${maybeCount} Maybe, ${pendingCount} Pending`;
 
   const cardWidth = "min(430px, 92vw)";
   const bottomButtonStyle = {
@@ -924,7 +937,7 @@ export default function GuestsPage({
             </div>
           </div>
 
-          {/* Guest count pill */}
+          {/* Guest summary pill */}
           <div style={{ marginBottom: 16 }}>
             <div
               style={{
@@ -938,7 +951,7 @@ export default function GuestsPage({
                 color: "#555",
               }}
             >
-              {guestCountLabel}
+              {guestSummary}
             </div>
           </div>
 
@@ -957,10 +970,10 @@ export default function GuestsPage({
                 alignItems: "center",
               }}
             >
-              <div>Child Name</div>
-              <div>Phone</div>
-              <div>RSVP / WhatsApp</div>
-              <div style={{ textAlign: "right" }}>Actions</div>
+              <div>Guest</div>
+              <div>Phone #</div>
+              <div>RSVP Status</div>
+              <div style={{ textAlign: "right" }}>{/* blank header */}</div>
             </div>
 
             <div
@@ -993,7 +1006,7 @@ export default function GuestsPage({
                       hoveredToken === row.invite_token ? 6 : undefined,
                   }}
                 >
-                  {/* Child */}
+                  {/* Guest (child name) */}
                   <div
                     style={{
                       whiteSpace: "nowrap",
@@ -1004,7 +1017,7 @@ export default function GuestsPage({
                     {row.child_name}
                   </div>
 
-                  {/* Phone */}
+                  {/* Phone # */}
                   <div
                     style={{
                       whiteSpace: "nowrap",
@@ -1016,7 +1029,7 @@ export default function GuestsPage({
                     {row.phone_e164 ? phoneDigits(row.phone_e164) : ""}
                   </div>
 
-                  {/* RSVP / WhatsApp (merged) */}
+                  {/* RSVP Status (merged with WA behaviour) */}
                   <div>
                     {row.invite_method === "manual" ? (
                       // Manual: dropdown only, no WA
@@ -1048,7 +1061,7 @@ export default function GuestsPage({
                         <option value="maybe">Maybe</option>
                       </select>
                     ) : row.invite_status === "not_sent" ? (
-                      // WhatsApp & not yet sent: show WA "Send" pill here
+                      // WhatsApp & not yet sent: show WA "Send" pill
                       <button
                         type="button"
                         onClick={async () => {
