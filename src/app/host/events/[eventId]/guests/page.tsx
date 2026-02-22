@@ -107,7 +107,8 @@ export default function GuestsPage({
         parent_name,
         phone_e164,
         invite_method,
-        invite_status
+        invite_status,
+        participants:participant_id(full_name)
       `
       )
       .eq("event_id", eventId)
@@ -117,6 +118,9 @@ export default function GuestsPage({
       setStatusMsg("Error loading invites: " + error.message);
       return;
     }
+
+    // Debug line if you want to see raw data in browser console
+    console.log("event_invites raw data:", data);
 
     const participantIds = (data ?? [])
       .map((x: any) => x.participant_id)
@@ -138,13 +142,19 @@ export default function GuestsPage({
     const mapped: Row[] = (data ?? []).map((d: any) => ({
       invite_token: d.invite_token,
       participant_id: d.participant_id,
-      child_name: d.child_name ?? "",          // <- directly from event_invites
+      // Prefer event_invites.child_name, then fall back to participants.full_name
+      child_name:
+        (d.child_name as string | null) ??
+        ((d.participants && d.participants.full_name) as string | null) ??
+        "",
       parent_name: d.parent_name ?? null,
       phone_e164: d.phone_e164 ?? null,
       rsvp_status: attendanceMap.get(d.participant_id) ?? "pending",
       invite_method: (d.invite_method ?? "whatsapp") as InviteMethod,
       invite_status: (d.invite_status ?? "not_sent") as InviteStatus,
     }));
+
+    console.log("mapped rows:", mapped);
 
     setRows(mapped);
   }
