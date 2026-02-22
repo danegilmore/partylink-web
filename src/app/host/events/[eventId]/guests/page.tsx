@@ -569,54 +569,52 @@ export default function GuestsPage({
                   )}
                 </div>
 
-                {/* WhatsApp column */}
-                <div style={{ textAlign: "right" }}>
-                  {row.invite_method === "whatsapp" && row.phone_e164 ? (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        // Open WhatsApp link
-                        window.open(
-                          whatsappLink(
-                            row.invite_token,
-                            row.parent_name,
-                            row.phone_e164
-                          ),
-                          "_blank"
-                        );
+{/* WhatsApp / Invite method column */}
+<div style={{ textAlign: "right" }}>
+  {row.invite_method === "manual" ? (
+    <span style={{ fontSize: 12, color: "#555" }}>Manual invite</span>
+  ) : row.phone_e164 ? (
+    <button
+      type="button"
+      onClick={async () => {
+        // Open WhatsApp link
+        window.open(
+          whatsappLink(row.invite_token, row.parent_name, row.phone_e164),
+          "_blank"
+        );
 
-                        // Only mark sent if not already acknowledged
-                        if (row.invite_status === "not_sent") {
-                          await supabase.rpc("mark_whatsapp_sent", {
-                            p_invite_token: row.invite_token,
-                          });
-                          await reloadRows();
-                        }
-                      }}
-                      style={{
-                        fontSize: 12,
-                        padding: "4px 8px",
-                        borderRadius: 999,
-                        border: "1px solid #0077a8",
-                        background:
-                          row.invite_status === "whatsapp_sent" ||
-                          row.invite_status === "acknowledged"
-                            ? "#0077a8"
-                            : "transparent",
-                        color:
-                          row.invite_status === "whatsapp_sent" ||
-                          row.invite_status === "acknowledged"
-                            ? "#fff"
-                            : "#0077a8",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {row.invite_status === "not_sent" ? "Send" : "Resend"}
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: 12, color: "#aaa" }}>—</span>
-                  )}
-                </div>
+        // Only mark sent if not already acknowledged
+        if (row.invite_status === "not_sent") {
+          await supabase.rpc("mark_whatsapp_sent", {
+            p_invite_token: row.invite_token,
+          });
+          await reloadRows();
+        }
+      }}
+      style={{
+        fontSize: 12,
+        padding: "4px 8px",
+        borderRadius: 999,
+        border: "1px solid #0077a8",
+        background:
+          row.invite_status === "whatsapp_sent" ||
+          row.invite_status === "acknowledged"
+            ? "#0077a8"
+            : "transparent",
+        color:
+          row.invite_status === "whatsapp_sent" ||
+          row.invite_status === "acknowledged"
+            ? "#fff"
+            : "#0077a8",
+        cursor: "pointer",
+      }}
+    >
+      {row.invite_status === "not_sent" ? "Send" : "Resend"}
+    </button>
+  ) : (
+    <span style={{ fontSize: 12, color: "#aaa" }}>—</span>
+  )}
+</div>
               </div>
             ))}
 
