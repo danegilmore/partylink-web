@@ -1,4 +1,3 @@
-// src/app/host/events/EventsClient.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -484,7 +483,7 @@ export default function EventsClient({
               style={{
                 padding: "6px 12px",
                 borderRadius: 4,
-                border: "1px solid "#000",
+                border: "1px solid #000",
                 backgroundColor: "#000",
                 color: "#fff",
                 fontSize: 13,
