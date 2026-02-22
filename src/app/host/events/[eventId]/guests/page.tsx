@@ -13,12 +13,18 @@ function normalizeSGPhone(input: string) {
   return input;
 }
 
+type InviteMethod = "whatsapp" | "manual";
+type InviteStatus = "not_sent" | "whatsapp_sent" | "acknowledged";
+
 type Row = {
   invite_token: string;
+  participant_id: string;
   child_name: string;
   parent_name: string | null;
   phone_e164: string | null;
   rsvp_status: string;
+  invite_method: InviteMethod;
+  invite_status: InviteStatus;
 };
 
 export default function GuestsPage({
@@ -31,13 +37,17 @@ export default function GuestsPage({
   const supabase = useMemo(() => supabaseBrowser(), []);
 
   const [eventTitle, setEventTitle] = useState("");
+  const [rows, setRows] = useState<Row[]>([]);
+  const [statusMsg, setStatusMsg] = useState("");
+
+  // Modal state
+  const [showAddModal, setShowAddModal] = useState(false);
   const [childName, setChildName] = useState("");
   const [parentName, setParentName] = useState("");
   const [phone, setPhone] = useState("");
-  const [statusMsg, setStatusMsg] = useState("");
-  const [rows, setRows] = useState<Row[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [sendViaWhatsapp, setSendViaWhatsapp] = useState(true);
 
+  // Load event title
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
@@ -52,57 +62,6 @@ export default function GuestsPage({
       }
 
       setEventTitle(data?.title ?? "");
-    })();
-  }, [supabase, eventId]);
-
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from("event_invites")
-        .select(
-          `
-            invite_token,
-            parent_name,
-            phone_e164,
-            participant_id,
-            participants:participant_id(full_name)
-          `
-        )
-        .eq("event_id", eventId)
-        .order("created_at", { ascending: true });
-
-      if (error) {
-        setStatusMsg("Error loading invites: " + error.message);
-        return;
-      }
-
-      const participantIds = (data ?? [])
-        .map((x: any) => x.participant_id)
-        .filter(Boolean);
-
-      let attendanceMap = new Map<string, string>();
-      if (participantIds.length > 0) {
-        const { data: att } = await supabase
-          .from("attendance")
-          .select("participant_id,status")
-          .eq("event_id", eventId)
-          .in("participant_id", participantIds);
-
-        (att ?? []).forEach((a: any) =>
-          attendanceMap.set(a.participant_id, a.status)
-        );
-      }
-
-      const mapped: Row[] = (data ?? []).map((d: any) => ({
-        invite_token: d.invite_token,
-        child_name: d.participants?.full_name ?? "",
-        parent_name: d.parent_name ?? null,
-        phone_e164: d.phone_e164 ?? null,
-        rsvp_status: attendanceMap.get(d.participant_id) ?? "pending",
-      }));
-
-      setRows(mapped);
-      setStatusMsg("");
     })();
   }, [supabase, eventId]);
 
@@ -140,20 +99,20 @@ export default function GuestsPage({
   async function reloadRows() {
     const { data, error } = await supabase
       .from("event_invites")
-      .select(
-        `
-          invite_token,
-          parent_name,
-          phone_e164,
-          participant_id,
-          participants:participant_id(full_name)
-        `
-      )
+      .select(`
+        invite_token,
+        parent_name,
+        phone_e164,
+        invite_method,
+        invite_status,
+        participant_id,
+        participants:participant_id(full_name)
+      `)
       .eq("event_id", eventId)
       .order("created_at", { ascending: true });
 
     if (error) {
-      setStatusMsg("Error reloading invites: " + error.message);
+      setStatusMsg("Error loading invites: " + error.message);
       return;
     }
 
@@ -176,13 +135,40 @@ export default function GuestsPage({
 
     const mapped: Row[] = (data ?? []).map((d: any) => ({
       invite_token: d.invite_token,
+      participant_id: d.participant_id,
       child_name: d.participants?.full_name ?? "",
       parent_name: d.parent_name ?? null,
       phone_e164: d.phone_e164 ?? null,
       rsvp_status: attendanceMap.get(d.participant_id) ?? "pending",
+      invite_method: (d.invite_method ?? "whatsapp") as InviteMethod,
+      invite_status: (d.invite_status ?? "not_sent") as InviteStatus,
     }));
 
     setRows(mapped);
+  }
+
+  // Initial load
+  useEffect(() => {
+    reloadRows();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase, eventId]);
+
+  function displayStatus(row: Row): string {
+    const rsvp = row.rsvp_status?.toLowerCase();
+
+    // Final RSVP overrides everything
+    if (rsvp === "yes" || rsvp === "no" || rsvp === "maybe") {
+      return rsvp.charAt(0).toUpperCase() + rsvp.slice(1);
+    }
+
+    if (row.invite_method === "whatsapp") {
+      if (row.invite_status === "whatsapp_sent") return "WhatsApp sent";
+      if (row.invite_status === "acknowledged") return "Invite acknowledged";
+      return "Not sent";
+    }
+
+    // Manual method, but no RSVP yet
+    return "Pending";
   }
 
   async function handleAddGuest() {
@@ -202,6 +188,7 @@ export default function GuestsPage({
         p_child_name: childName.trim(),
         p_parent_name: parentName.trim() || null,
         p_phone_e164: normalizedPhone,
+        p_invite_method: sendViaWhatsapp ? "whatsapp" : "manual",
       }
     );
 
@@ -213,8 +200,26 @@ export default function GuestsPage({
     setChildName("");
     setParentName("");
     setPhone("");
-    setStatusMsg("Guest added.");
+    setSendViaWhatsapp(true);
     setShowAddModal(false);
+    setStatusMsg("Guest added.");
+
+    await reloadRows();
+  }
+
+  async function updateManualStatus(row: Row, newStatus: string) {
+    setStatusMsg("");
+
+    const { error } = await supabase
+      .from("attendance")
+      .update({ status: newStatus })
+      .eq("event_id", eventId)
+      .eq("participant_id", row.participant_id);
+
+    if (error) {
+      setStatusMsg("Error updating status: " + error.message);
+      return;
+    }
 
     await reloadRows();
   }
@@ -224,7 +229,6 @@ export default function GuestsPage({
     guestCount === 1 ? "1 Guest in List" : `${guestCount} Guests in List`;
 
   const cardWidth = "min(430px, 92vw)";
-
   const bottomButtonStyle = {
     flex: 1,
     padding: "10px 12px",
@@ -239,7 +243,7 @@ export default function GuestsPage({
 
   return (
     <>
-      {/* Popup modal for adding a guest */}
+      {/* Add Guest Modal */}
       {showAddModal && (
         <div
           style={{
@@ -337,6 +341,23 @@ export default function GuestsPage({
                 />
               </label>
 
+              <label
+                style={{
+                  fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginTop: 4,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={sendViaWhatsapp}
+                  onChange={(e) => setSendViaWhatsapp(e.target.checked)}
+                />
+                Send invite via WhatsApp
+              </label>
+
               <button
                 type="button"
                 onClick={handleAddGuest}
@@ -365,7 +386,7 @@ export default function GuestsPage({
         </div>
       )}
 
-      {/* Main page layout */}
+      {/* Main page */}
       <main
         style={{
           minHeight: "100vh",
@@ -418,7 +439,6 @@ export default function GuestsPage({
               >
                 Create Event
               </Link>
-              {/* Active tab */}
               <span
                 style={{
                   padding: "6px 0",
@@ -472,14 +492,14 @@ export default function GuestsPage({
             </div>
           </div>
 
-          {/* Column headers – now includes RSVP + WhatsApp */}
+          {/* Column headers */}
           <div
             style={{
               fontSize: 11,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               display: "grid",
-              gridTemplateColumns: "2fr 2fr 1.7fr 1.1fr 1.3fr",
+              gridTemplateColumns: "2fr 2fr 1.7fr 1.4fr 1.3fr",
               columnGap: 6,
               marginBottom: 4,
             }}
@@ -487,7 +507,7 @@ export default function GuestsPage({
             <div>Child Name</div>
             <div>Parent Name</div>
             <div>Phone Number</div>
-            <div>RSVP</div>
+            <div>RSVP Status</div>
             <div style={{ textAlign: "right" }}>WhatsApp</div>
           </div>
           <div
@@ -504,7 +524,7 @@ export default function GuestsPage({
                 key={row.invite_token}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "2fr 2fr 1.7fr 1.1fr 1.3fr",
+                  gridTemplateColumns: "2fr 2fr 1.7fr 1.4fr 1.3fr",
                   columnGap: 6,
                   alignItems: "center",
                   padding: "6px 0",
@@ -515,28 +535,87 @@ export default function GuestsPage({
                 <div>{row.child_name}</div>
                 <div>{row.parent_name || ""}</div>
                 <div>{row.phone_e164 ? phoneDigits(row.phone_e164) : ""}</div>
-                <div style={{ textTransform: "capitalize" }}>
-                  {row.rsvp_status}
+
+                {/* RSVP Status column */}
+                <div>
+                  {row.invite_method === "manual" ? (
+                    <select
+                      value={
+                        ["yes", "no", "maybe"].includes(
+                          row.rsvp_status.toLowerCase()
+                        )
+                          ? row.rsvp_status.toLowerCase()
+                          : "pending"
+                      }
+                      onChange={(e) =>
+                        updateManualStatus(row, e.target.value.toLowerCase())
+                      }
+                      style={{
+                        fontSize: 12,
+                        padding: "2px 4px",
+                        borderRadius: 4,
+                        border: "1px solid #ccc",
+                      }}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                      <option value="maybe">Maybe</option>
+                    </select>
+                  ) : (
+                    <span style={{ fontSize: 12 }}>
+                      {displayStatus(row)}
+                    </span>
+                  )}
                 </div>
+
+                {/* WhatsApp column */}
                 <div style={{ textAlign: "right" }}>
-                  <a
-                    href={whatsappLink(
-                      row.invite_token,
-                      row.parent_name,
-                      row.phone_e164
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      fontSize: 12,
-                      textDecoration: "none",
-                      padding: "4px 8px",
-                      borderRadius: 999,
-                      border: "1px solid #0077a8",
-                    }}
-                  >
-                    Share
-                  </a>
+                  {row.invite_method === "whatsapp" && row.phone_e164 ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        // Open WhatsApp link
+                        window.open(
+                          whatsappLink(
+                            row.invite_token,
+                            row.parent_name,
+                            row.phone_e164
+                          ),
+                          "_blank"
+                        );
+
+                        // Only mark sent if not already acknowledged
+                        if (row.invite_status === "not_sent") {
+                          await supabase.rpc("mark_whatsapp_sent", {
+                            p_invite_token: row.invite_token,
+                          });
+                          await reloadRows();
+                        }
+                      }}
+                      style={{
+                        fontSize: 12,
+                        padding: "4px 8px",
+                        borderRadius: 999,
+                        border: "1px solid #0077a8",
+                        background:
+                          row.invite_status === "whatsapp_sent" ||
+                          row.invite_status === "acknowledged"
+                            ? "#0077a8"
+                            : "transparent",
+                        color:
+                          row.invite_status === "whatsapp_sent" ||
+                          row.invite_status === "acknowledged"
+                            ? "#fff"
+                            : "#0077a8",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {row.invite_status === "not_sent" ? "Send" : "Resend"}
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#aaa" }}>—</span>
+                  )}
                 </div>
               </div>
             ))}
@@ -586,7 +665,6 @@ export default function GuestsPage({
             </button>
           </div>
 
-          {/* Status message under buttons when modal is closed */}
           {!showAddModal && statusMsg && (
             <p
               style={{

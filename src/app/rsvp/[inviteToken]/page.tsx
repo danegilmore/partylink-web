@@ -89,6 +89,16 @@ export default function RsvpPage({
         setStatus("yes");
       }
 
+      // Mark invite as "acknowledged" once the RSVP page has been successfully opened
+      try {
+        await supabase.rpc("mark_invite_acknowledged", {
+          p_invite_token: inviteToken,
+        });
+      } catch (e) {
+        // Non-critical: log and continue
+        console.error("mark_invite_acknowledged error", e);
+      }
+
       // Check if the current user is the host
       const { data: userData } = await supabase.auth.getUser();
       const user = userData?.user ?? null;
