@@ -65,6 +65,7 @@ export default function GuestsPage({
   const [editChild, setEditChild] = useState("");
   const [editParent, setEditParent] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editMethod, setEditMethod] = useState<InviteMethod>("manual");
 
   // Load event title
   useEffect(() => {
@@ -177,7 +178,6 @@ export default function GuestsPage({
   function displayStatus(row: Row): string {
     const rsvp = row.rsvp_status?.toLowerCase();
 
-    // Final RSVP overrides everything
     if (rsvp === "yes" || rsvp === "no" || rsvp === "maybe") {
       return rsvp.charAt(0).toUpperCase() + rsvp.slice(1);
     }
@@ -188,7 +188,6 @@ export default function GuestsPage({
       return "Not sent";
     }
 
-    // Manual method, but no RSVP yet
     return "Pending";
   }
 
@@ -305,7 +304,7 @@ export default function GuestsPage({
         child_name: g.child_name,
         parent_name: g.parent_name,
         phone_e164: g.phone_e164,
-        invite_method: "manual", // previous guests default to manual; adjust if you want WhatsApp
+        invite_method: "manual", // reuse as manual by default
       };
     });
 
@@ -330,10 +329,11 @@ export default function GuestsPage({
     setEditChild(row.child_name);
     setEditParent(row.parent_name || "");
     setEditPhone(row.phone_e164 ? phoneDigits(row.phone_e164) : "");
+    setEditMethod(row.invite_method);
     setShowEditModal(true);
   }
 
-  // Save edits
+  // Save edits (including manual vs whatsapp)
   async function handleSaveEdit() {
     if (!editToken) return;
 
@@ -344,6 +344,7 @@ export default function GuestsPage({
       p_child_name: editChild.trim(),
       p_parent_name: editParent.trim() || null,
       p_phone_e164: normalizedPhone,
+      p_invite_method: editMethod,
     });
 
     if (error) {
@@ -528,12 +529,6 @@ export default function GuestsPage({
               >
                 Add guest
               </button>
-
-              {statusMsg && (
-                <p style={{ color: "#444", marginTop: 4, fontSize: 13 }}>
-                  {statusMsg}
-                </p>
-              )}
             </div>
           </div>
         </div>
@@ -763,6 +758,28 @@ export default function GuestsPage({
                 />
               </label>
 
+              <label style={{ fontSize: 13 }}>
+                Invite method
+                <select
+                  value={editMethod}
+                  onChange={(e) =>
+                    setEditMethod(e.target.value as InviteMethod)
+                  }
+                  style={{
+                    marginTop: 4,
+                    display: "block",
+                    width: "100%",
+                    padding: "6px 8px",
+                    borderRadius: 4,
+                    border: "1px solid #ccc",
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="manual">Manual</option>
+                </select>
+              </label>
+
               <button
                 type="button"
                 onClick={handleSaveEdit}
@@ -968,20 +985,18 @@ export default function GuestsPage({
                   )}
                 </div>
 
-                {/* Actions column: WhatsApp / manual + Edit/Delete */}
+                {/* Actions column: WhatsApp / manual + icon Edit/Delete */}
                 <div
                   style={{
                     textAlign: "right",
                     display: "flex",
                     justifyContent: "flex-end",
-                    gap: 6,
+                    gap: 4,
                     alignItems: "center",
                   }}
                 >
                   {row.invite_method === "manual" ? (
-                    <span style={{ fontSize: 12, color: "#555" }}>
-                      Manual
-                    </span>
+                    <span style={{ fontSize: 11, color: "#555" }}>M</span>
                   ) : row.phone_e164 ? (
                     <button
                       type="button"
@@ -1002,9 +1017,10 @@ export default function GuestsPage({
                           await reloadRows();
                         }
                       }}
+                      title="Send WhatsApp"
                       style={{
-                        fontSize: 12,
-                        padding: "4px 8px",
+                        fontSize: 11,
+                        padding: "2px 6px",
                         borderRadius: 999,
                         border: "1px solid #0077a8",
                         background:
@@ -1020,41 +1036,45 @@ export default function GuestsPage({
                         cursor: "pointer",
                       }}
                     >
-                      {row.invite_status === "not_sent" ? "Send" : "Resend"}
+                      WA
                     </button>
                   ) : (
-                    <span style={{ fontSize: 12, color: "#aaa" }}>—</span>
+                    <span style={{ fontSize: 11, color: "#aaa" }}>—</span>
                   )}
 
                   <button
                     type="button"
                     onClick={() => openEditModal(row)}
+                    title="Edit guest"
                     style={{
-                      fontSize: 11,
-                      padding: "2px 6px",
+                      fontSize: 13,
+                      padding: "2px 4px",
                       borderRadius: 4,
                       border: "1px solid #ccc",
                       background: "#fff",
                       cursor: "pointer",
+                      lineHeight: 1,
                     }}
                   >
-                    Edit
+                    ✏️
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleDeleteGuest(row)}
+                    title="Delete guest"
                     style={{
-                      fontSize: 11,
-                      padding: "2px 6px",
+                      fontSize: 13,
+                      padding: "2px 4px",
                       borderRadius: 4,
                       border: "1px solid #f33",
                       background: "#fff",
                       color: "#c00",
                       cursor: "pointer",
+                      lineHeight: 1,
                     }}
                   >
-                    Delete
+                    🗑
                   </button>
                 </div>
               </div>
