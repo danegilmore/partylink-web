@@ -22,6 +22,22 @@ interface BeforeInstallPromptEvent extends Event {
   }>;
 }
 
+// Helper to map DB value -> <input type="datetime-local"> value
+function formatForDateTimeLocal(value: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+
+  // Matches the value format expected by <input type="datetime-local">
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 export default function EventsClient({
   initialEvents,
   errorMessage,
@@ -111,7 +127,7 @@ export default function EventsClient({
         .from("events")
         .insert({
           title: createTitle,
-          // Match existing /host/events/new: store raw datetime-local
+          // Match existing /host/events/new: store raw datetime-local string
           starts_at: createDateTime || null,
           location_name: createLocation || null,
           host_user_id: user.id,
@@ -139,7 +155,8 @@ export default function EventsClient({
   function handleOpenEdit(ev: EventRow) {
     setEditingEvent(ev);
     setEditTitle(ev.title ?? "");
-    setEditDateTime(ev.starts_at ?? "");
+    // Normalise DB value into datetime-local format
+    setEditDateTime(formatForDateTimeLocal(ev.starts_at));
     setEditLocation(ev.location_name ?? "");
     setEditError(null);
     setShowEditModal(true);
@@ -179,6 +196,7 @@ export default function EventsClient({
         .from("events")
         .update({
           title: editTitle,
+          // Keep same format as create: store datetime-local string
           starts_at: editDateTime || null,
           location_name: editLocation || null,
         })
@@ -342,7 +360,8 @@ export default function EventsClient({
                   }}
                 >
                   {e.starts_at
-                    ? new Date(e.starts_at).toLocaleString(undefined, {
+                    ? new Date(e.starts_at).toLocaleString("en-SG", {
+                        timeZone: "Asia/Singapore",
                         dateStyle: "medium",
                         timeStyle: "short",
                       })
@@ -351,11 +370,11 @@ export default function EventsClient({
               </Link>
             </div>
 
-            {/* Right: Edit / Delete actions */}
+            {/* Right: small icon actions */}
             <div
               style={{
                 display: "flex",
-                gap: 8,
+                gap: 4,
                 marginLeft: 8,
                 flexShrink: 0,
               }}
@@ -363,32 +382,32 @@ export default function EventsClient({
               <button
                 type="button"
                 onClick={() => handleOpenEdit(e)}
+                aria-label="Edit event"
                 style={{
                   border: "none",
                   background: "none",
-                  color: "#00627A",
                   cursor: "pointer",
-                  fontSize: 12,
-                  textDecoration: "underline",
+                  fontSize: 14,
+                  lineHeight: 1,
                   padding: 0,
                 }}
               >
-                Edit
+                ✏️
               </button>
               <button
                 type="button"
                 onClick={() => handleDelete(e)}
+                aria-label="Delete event"
                 style={{
                   border: "none",
                   background: "none",
-                  color: "#B00020",
                   cursor: "pointer",
-                  fontSize: 12,
-                  textDecoration: "underline",
+                  fontSize: 14,
+                  lineHeight: 1,
                   padding: 0,
                 }}
               >
-                Delete
+                🗑
               </button>
             </div>
           </div>
@@ -465,7 +484,7 @@ export default function EventsClient({
               style={{
                 padding: "6px 12px",
                 borderRadius: 4,
-                border: "1px solid #000",
+                border: "1px solid "#000",
                 backgroundColor: "#000",
                 color: "#fff",
                 fontSize: 13,

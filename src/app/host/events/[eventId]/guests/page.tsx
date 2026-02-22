@@ -67,6 +67,9 @@ export default function GuestsPage({
   const [editPhone, setEditPhone] = useState("");
   const [editMethod, setEditMethod] = useState<InviteMethod>("manual");
 
+  // Hover state for rows
+  const [hoveredToken, setHoveredToken] = useState<string | null>(null);
+
   // Load event title
   useEffect(() => {
     (async () => {
@@ -190,6 +193,36 @@ export default function GuestsPage({
     }
 
     return "Pending";
+  }
+
+  function statusPillStyle(row: Row) {
+    const label = displayStatus(row);
+    const lower = label.toLowerCase();
+
+    let color = "#444";
+    let bg = "#eee";
+
+    if (lower === "yes") {
+      color = "#0a5c2b";
+      bg = "#d5f2dd";
+    } else if (lower === "no") {
+      color = "#a01919";
+      bg = "#f7d4d4";
+    } else if (lower === "maybe") {
+      color = "#8a5b00";
+      bg = "#ffe7b8";
+    } else if (lower === "whatsapp sent") {
+      color = "#005b96";
+      bg = "#d4e8ff";
+    } else if (lower === "invite acknowledged") {
+      color = "#005b96";
+      bg = "#d4e8ff";
+    } else if (lower === "not sent" || lower === "pending") {
+      color = "#555";
+      bg = "#ececec";
+    }
+
+    return { label, color, backgroundColor: bg };
   }
 
   // Add new guest (from modal)
@@ -909,190 +942,224 @@ export default function GuestsPage({
             </div>
           </div>
 
-          {/* Scrollable table container */}
-          <div style={{ overflowX: "auto" }}>
+          {/* Fixed-width responsive table */}
+          <div style={{ width: "100%" }}>
+            {/* Column headers */}
             <div
               style={{
-                minWidth: 540,
+                fontSize: 11,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                display: "grid",
+                gridTemplateColumns: "1.7fr 1.3fr 1.8fr auto",
+                columnGap: 6,
+                marginBottom: 4,
+                alignItems: "center",
               }}
             >
-              {/* Column headers (no parent column; merged RSVP/WhatsApp) */}
-              <div
-                style={{
-                  fontSize: 11,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  display: "grid",
-                  gridTemplateColumns: "2.2fr 1.8fr 2.4fr 1.2fr",
-                  columnGap: 6,
-                  marginBottom: 4,
-                }}
-              >
-                <div>Child Name</div>
-                <div>Phone Number</div>
-                <div>RSVP / WhatsApp</div>
-                <div style={{ textAlign: "right" }}>Actions</div>
-              </div>
-              <div
-                style={{
-                  borderBottom: "2px solid #0077a8",
-                  marginBottom: 4,
-                }}
-              />
+              <div>Child Name</div>
+              <div>Phone</div>
+              <div>RSVP / WhatsApp</div>
+              <div style={{ textAlign: "right" }}>Actions</div>
+            </div>
 
-              {/* Guest rows */}
-              <div>
-                {rows.map((row) => (
+            <div
+              style={{
+                borderBottom: "2px solid #0077a8",
+                marginBottom: 4,
+              }}
+            />
+
+            {/* Guest rows */}
+            {rows.map((row) => {
+              const pillStyle = statusPillStyle(row);
+
+              return (
+                <div
+                  key={row.invite_token}
+                  onMouseEnter={() => setHoveredToken(row.invite_token)}
+                  onMouseLeave={() => setHoveredToken(null)}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1.7fr 1.3fr 1.8fr auto",
+                    columnGap: 6,
+                    alignItems: "center",
+                    padding: "6px 6px",
+                    borderBottom: "1px solid #eee",
+                    fontSize: 13,
+                    backgroundColor:
+                      hoveredToken === row.invite_token ? "#f7f7f7" : "#fff",
+                    borderRadius:
+                      hoveredToken === row.invite_token ? 6 : undefined,
+                  }}
+                >
+                  {/* Child */}
                   <div
-                    key={row.invite_token}
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "2.2fr 1.8fr 2.4fr 1.2fr",
-                      columnGap: 6,
-                      alignItems: "center",
-                      padding: "6px 0",
-                      borderBottom: "1px solid #eee",
-                      fontSize: 13,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
                   >
-                    {/* Child */}
-                    <div>{row.child_name}</div>
+                    {row.child_name}
+                  </div>
 
-                    {/* Phone */}
-                    <div>
-                      {row.phone_e164 ? phoneDigits(row.phone_e164) : ""}
-                    </div>
+                  {/* Phone */}
+                  <div
+                    style={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      color: "#555",
+                    }}
+                  >
+                    {row.phone_e164 ? phoneDigits(row.phone_e164) : ""}
+                  </div>
 
-                    {/* RSVP / WhatsApp (merged) */}
-                    <div>
-                      {row.invite_method === "manual" ? (
-                        // Manual: dropdown only, no WA
-                        <select
-                          value={
-                            ["yes", "no", "maybe"].includes(
-                              row.rsvp_status.toLowerCase()
-                            )
-                              ? row.rsvp_status.toLowerCase()
-                              : "pending"
-                          }
-                          onChange={(e) =>
-                            updateManualStatus(row, e.target.value.toLowerCase())
-                          }
-                          style={{
-                            fontSize: 12,
-                            padding: "2px 4px",
-                            borderRadius: 4,
-                            border: "1px solid #ccc",
-                          }}
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="yes">Yes</option>
-                          <option value="no">No</option>
-                          <option value="maybe">Maybe</option>
-                        </select>
-                      ) : row.invite_status === "not_sent" ? (
-                        // WhatsApp & not yet sent: show WA "Send" pill here
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (!row.phone_e164) return;
-                            window.open(
-                              whatsappLink(
-                                row.invite_token,
-                                row.parent_name,
-                                row.phone_e164
-                              ),
-                              "_blank"
-                            );
+                  {/* RSVP / WhatsApp (merged) */}
+                  <div>
+                    {row.invite_method === "manual" ? (
+                      // Manual: dropdown only, no WA
+                      <select
+                        value={
+                          ["yes", "no", "maybe"].includes(
+                            row.rsvp_status.toLowerCase()
+                          )
+                            ? row.rsvp_status.toLowerCase()
+                            : "pending"
+                        }
+                        onChange={(e) =>
+                          updateManualStatus(
+                            row,
+                            e.target.value.toLowerCase()
+                          )
+                        }
+                        style={{
+                          fontSize: 12,
+                          padding: "2px 6px",
+                          borderRadius: 999,
+                          border: "1px solid #ccc",
+                          width: "100%",
+                        }}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                        <option value="maybe">Maybe</option>
+                      </select>
+                    ) : row.invite_status === "not_sent" ? (
+                      // WhatsApp & not yet sent: show WA "Send" pill here
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!row.phone_e164) return;
 
-                            await supabase.rpc("mark_whatsapp_sent", {
-                              p_invite_token: row.invite_token,
-                            });
-                            await reloadRows();
-                          }}
-                          style={{
-                            fontSize: 12,
-                            padding: "4px 8px",
-                            borderRadius: 999,
-                            border: "1px solid #0077a8",
-                            background: "transparent",
-                            color: "#0077a8",
-                            cursor: row.phone_e164 ? "pointer" : "not-allowed",
-                            opacity: row.phone_e164 ? 1 : 0.4,
-                          }}
-                        >
-                          Send WhatsApp
-                        </button>
-                      ) : (
-                        // WhatsApp & already sent / acknowledged / RSVP set
-                        <span style={{ fontSize: 12 }}>
-                          {displayStatus(row)}
-                        </span>
-                      )}
-                    </div>
+                          window.open(
+                            whatsappLink(
+                              row.invite_token,
+                              row.parent_name,
+                              row.phone_e164
+                            ),
+                            "_blank"
+                          );
 
-                    {/* Actions: edit / delete icons */}
-                    <div
+                          await supabase.rpc("mark_whatsapp_sent", {
+                            p_invite_token: row.invite_token,
+                          });
+                          await reloadRows();
+                        }}
+                        style={{
+                          fontSize: 12,
+                          padding: "4px 10px",
+                          borderRadius: 999,
+                          border: "1px solid #0077a8",
+                          background: "transparent",
+                          color: "#0077a8",
+                          cursor: row.phone_e164 ? "pointer" : "not-allowed",
+                          opacity: row.phone_e164 ? 1 : 0.4,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Send WhatsApp
+                      </button>
+                    ) : (
+                      // WhatsApp & already sent / acknowledged / RSVP set
+                      <span
+                        style={{
+                          fontSize: 12,
+                          padding: "3px 8px",
+                          borderRadius: 999,
+                          color: pillStyle.color,
+                          backgroundColor: pillStyle.backgroundColor,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {pillStyle.label}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Actions: edit / delete icons */}
+                  <div
+                    style={{
+                      textAlign: "right",
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      gap: 4,
+                      alignItems: "center",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(row)}
+                      title="Edit guest"
                       style={{
-                        textAlign: "right",
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        gap: 4,
-                        alignItems: "center",
+                        fontSize: 13,
+                        padding: "2px 4px",
+                        borderRadius: 4,
+                        border: "1px solid #ccc",
+                        background: "#fff",
+                        cursor: "pointer",
+                        lineHeight: 1,
                       }}
                     >
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(row)}
-                        title="Edit guest"
-                        style={{
-                          fontSize: 13,
-                          padding: "2px 4px",
-                          borderRadius: 4,
-                          border: "1px solid #ccc",
-                          background: "#fff",
-                          cursor: "pointer",
-                          lineHeight: 1,
-                        }}
-                      >
-                        ✏️
-                      </button>
+                      ✏️
+                    </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteGuest(row)}
-                        title="Delete guest"
-                        style={{
-                          fontSize: 13,
-                          padding: "2px 4px",
-                          borderRadius: 4,
-                          border: "1px solid #f33",
-                          background: "#fff",
-                          color: "#c00",
-                          cursor: "pointer",
-                          lineHeight: 1,
-                        }}
-                      >
-                        🗑
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGuest(row)}
+                      title="Delete guest"
+                      style={{
+                        fontSize: 13,
+                        padding: "2px 4px",
+                        borderRadius: 4,
+                        border: "1px solid #f33",
+                        background: "#fff",
+                        color: "#c00",
+                        cursor: "pointer",
+                        lineHeight: 1,
+                      }}
+                    >
+                      🗑
+                    </button>
                   </div>
-                ))}
+                </div>
+              );
+            })}
 
-                {rows.length === 0 && (
-                  <div
-                    style={{
-                      padding: "12px 0",
-                      fontSize: 13,
-                      color: "#777",
-                      borderBottom: "1px solid #eee",
-                    }}
-                  >
-                    No guests yet.
-                  </div>
-                )}
+            {rows.length === 0 && (
+              <div
+                style={{
+                  padding: "12px 0",
+                  fontSize: 13,
+                  color: "#777",
+                  borderBottom: "1px solid #eee",
+                }}
+              >
+                No guests yet.
               </div>
-            </div>
+            )}
           </div>
 
           {/* Bottom buttons */}
